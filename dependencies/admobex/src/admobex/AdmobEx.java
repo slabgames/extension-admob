@@ -8,6 +8,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
@@ -31,6 +32,8 @@ import com.google.android.gms.ads.rewarded.RewardItem;
 import com.google.android.gms.ads.rewarded.RewardedAd;
 import com.google.android.gms.ads.OnUserEarnedRewardListener;
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
+import com.google.android.gms.ads.appopen.AppOpenAd;
+import com.google.android.gms.ads.appopen.AppOpenAd.AppOpenAdLoadCallback;
 
 import com.google.android.ump.ConsentInformation;
 import com.google.android.ump.ConsentRequestParameters;
@@ -73,6 +76,8 @@ public class AdmobEx extends Extension
 	public static final String REWARDED_SHOWED = "REWARDED_SHOWED";
 	public static final String REWARDED_EARNED = "REWARDED_EARNED";
 	public static final String WHAT_IS_GOING_ON = "WHAT_IS_GOING_ON";
+	public static final String APPOPEN_FAILED_TO_SHOW = "APPOPEN_FAILED_TO_SHOW";
+	public static final String APPOPEN_SHOWED = "APPOPEN_SHOWED";
 	
 	private static final int BANNER_SIZE_ADAPTIVE = 0; //Anchored adaptive, somewhat default now (a replacement for SMART_BANNER); banner width is fullscreen, height calculated acordingly (might not work well with landscape orientation)
 	private static final int BANNER_SIZE_BANNER = 1; //320x50
@@ -89,6 +94,7 @@ public class AdmobEx extends Extension
 	private static AdSize _bannerSize = null;
 	private static InterstitialAd _interstitial = null;
 	private static RewardedAd _rewarded = null;
+	private static AppOpenAdManager _appOpenAdManager = null;
 	
 	private static ConsentInformation consentInformation = null;
 
@@ -194,6 +200,7 @@ public class AdmobEx extends Extension
 			testDeviceIds.add(deviceId);
 			
 			configuration.setTestDeviceIds(testDeviceIds);
+			_appOpenAdManager = new AppOpenAdManager();
 			//Log.d("AdmobEx", "TEST DEVICE ID: "+deviceId);
 		}
 		//<
@@ -332,6 +339,36 @@ public class AdmobEx extends Extension
 					_rl = null;
 				}
 			});
+		}
+	}
+
+	public static void loadAppOpen(final String id)
+	{
+		mainActivity.runOnUiThread(new Runnable()
+		{
+			_appOpenAdManager.loadAd(mainActivity,id);
+		});
+	}
+
+	public static void showAppOpen()
+	{
+		if(_appOpenAdManager != null)
+		{
+			mainActivity.runOnUiThread(new Runnable()
+			{
+				public void run()
+				{
+					_appOpenAdManager.showAdIfAvailable(mainActivity, new OnShowAdCompleteListener(){
+						_callback.call("onStatus", new Object[] {APPOPEN_SHOWED, ""}); //no need here, because called at onAdShowedFullScreenContent
+					});
+					
+				}
+			});
+		}
+		else
+		{
+			//Log.d("AdmobEx", INTERSTITIAL_FAILED_TO_SHOW+"You need to load interstitial ad first!");
+			_callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_SHOW, "You need to load app open ad first!"});
 		}
 	}
 	
@@ -599,4 +636,180 @@ public class AdmobEx extends Extension
 		return "";
 	}
 	//<
+
+
+	public interface OnShowAdCompleteListener {
+    void onShowAdComplete();
+  }
+
+
+	/** Inner class that loads and shows app open ads. */
+  private class AppOpenAdManager {
+
+    private static final String LOG_TAG = "AppOpenAdManager";
+    // private static final String AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921";
+
+    private final GoogleMobileAdsConsentManager googleMobileAdsConsentManager =
+        GoogleMobileAdsConsentManager.getInstance(getApplicationContext());
+    private AppOpenAd appOpenAd = null;
+    private boolean isLoadingAd = false;
+    private boolean isShowingAd = false;
+
+    /** Keep track of the time an app open ad is loaded to ensure you don't show an expired ad. */
+    private long loadTime = 0;
+
+    /** Constructor. */
+    public AppOpenAdManager() {}
+
+    /**
+     * Load an ad.
+     *
+     * @param context the context of the activity that loads the ad
+     */
+    private void loadAd(Context context,final String adId) {
+      // Do not load ad if there is an unused ad or one is already loading.
+      if (isLoadingAd || isAdAvailable()) {
+        return;
+      }
+
+      isLoadingAd = true;
+      AdRequest request = new AdRequest.Builder().build();
+      AppOpenAd.load(
+          context,
+          adId,
+          request,
+          new AppOpenAdLoadCallback() {
+            /**
+             * Called when an app open ad has loaded.
+             *
+             * @param ad the loaded app open ad.
+             */
+            @Override
+            public void onAdLoaded(AppOpenAd ad) {
+              appOpenAd = ad;
+              isLoadingAd = false;
+              loadTime = (new Date()).getTime();
+
+              Log.d(LOG_TAG, "onAdLoaded.");
+              Toast.makeText(context, "onAdLoaded", Toast.LENGTH_SHORT).show();
+            }
+
+            /**
+             * Called when an app open ad has failed to load.
+             *
+             * @param loadAdError the error.
+             */
+            @Override
+            public void onAdFailedToLoad(LoadAdError loadAdError) {
+              isLoadingAd = false;
+              Log.d(LOG_TAG, "onAdFailedToLoad: " + loadAdError.getMessage());
+              Toast.makeText(context, "onAdFailedToLoad", Toast.LENGTH_SHORT).show();
+            }
+          });
+    }
+
+    /** Check if ad was loaded more than n hours ago. */
+    private boolean wasLoadTimeLessThanNHoursAgo(long numHours) {
+      long dateDifference = (new Date()).getTime() - loadTime;
+      long numMilliSecondsPerHour = 3600000;
+      return (dateDifference < (numMilliSecondsPerHour * numHours));
+    }
+
+    /** Check if ad exists and can be shown. */
+    public boolean isAdAvailable() {
+      // Ad references in the app open beta will time out after four hours, but this time limit
+      // may change in future beta versions. For details, see:
+      // https://support.google.com/admob/answer/9341964?hl=en
+      return appOpenAd != null && wasLoadTimeLessThanNHoursAgo(4);
+    }
+
+    /**
+     * Show the ad if one isn't already showing.
+     *
+     * @param activity the activity that shows the app open ad
+     */
+    private void showAdIfAvailable(@NonNull final Activity activity) {
+      showAdIfAvailable(
+          activity,
+          new OnShowAdCompleteListener() {
+            @Override
+            public void onShowAdComplete() {
+              // Empty because the user will go back to the activity that shows the ad.
+            }
+          });
+    }
+
+    /**
+     * Show the ad if one isn't already showing.
+     *
+     * @param activity the activity that shows the app open ad
+     * @param onShowAdCompleteListener the listener to be notified when an app open ad is complete
+     */
+    private void showAdIfAvailable(
+        @NonNull final Activity activity,
+        @NonNull OnShowAdCompleteListener onShowAdCompleteListener) {
+      // If the app open ad is already showing, do not show the ad again.
+      if (isShowingAd) {
+        Log.d(LOG_TAG, "The app open ad is already showing.");
+        return;
+      }
+
+      // If the app open ad is not available yet, invoke the callback then load the ad.
+      if (!isAdAvailable()) {
+        Log.d(LOG_TAG, "The app open ad is not ready yet.");
+        onShowAdCompleteListener.onShowAdComplete();
+        if (googleMobileAdsConsentManager.canRequestAds()) {
+          loadAd(currentActivity);
+        }
+        return;
+      }
+
+      Log.d(LOG_TAG, "Will show ad.");
+
+      appOpenAd.setFullScreenContentCallback(
+          new FullScreenContentCallback() {
+            /** Called when full screen content is dismissed. */
+            @Override
+            public void onAdDismissedFullScreenContent() {
+              // Set the reference to null so isAdAvailable() returns false.
+              appOpenAd = null;
+              isShowingAd = false;
+
+              Log.d(LOG_TAG, "onAdDismissedFullScreenContent.");
+              Toast.makeText(activity, "onAdDismissedFullScreenContent", Toast.LENGTH_SHORT).show();
+
+              onShowAdCompleteListener.onShowAdComplete();
+              if (googleMobileAdsConsentManager.canRequestAds()) {
+                loadAd(activity);
+              }
+            }
+
+            /** Called when fullscreen content failed to show. */
+            @Override
+            public void onAdFailedToShowFullScreenContent(AdError adError) {
+              appOpenAd = null;
+              isShowingAd = false;
+
+              Log.d(LOG_TAG, "onAdFailedToShowFullScreenContent: " + adError.getMessage());
+              Toast.makeText(activity, "onAdFailedToShowFullScreenContent", Toast.LENGTH_SHORT)
+                  .show();
+
+              onShowAdCompleteListener.onShowAdComplete();
+              if (googleMobileAdsConsentManager.canRequestAds()) {
+                loadAd(activity);
+              }
+            }
+
+            /** Called when fullscreen content is shown. */
+            @Override
+            public void onAdShowedFullScreenContent() {
+              Log.d(LOG_TAG, "onAdShowedFullScreenContent.");
+              Toast.makeText(activity, "onAdShowedFullScreenContent", Toast.LENGTH_SHORT).show();
+            }
+          });
+
+      isShowingAd = true;
+      appOpenAd.show(activity);
+    }
+  }
 }
