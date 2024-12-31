@@ -78,6 +78,7 @@ public class AdmobEx extends Extension
 	public static final String WHAT_IS_GOING_ON = "WHAT_IS_GOING_ON";
 	public static final String APPOPEN_FAILED_TO_SHOW = "APPOPEN_FAILED_TO_SHOW";
 	public static final String APPOPEN_SHOWED = "APPOPEN_SHOWED";
+	public static final String APPOPEN_SHOWED = "APPOPEN_LOADED";
 	
 	private static final int BANNER_SIZE_ADAPTIVE = 0; //Anchored adaptive, somewhat default now (a replacement for SMART_BANNER); banner width is fullscreen, height calculated acordingly (might not work well with landscape orientation)
 	private static final int BANNER_SIZE_BANNER = 1; //320x50
@@ -94,7 +95,12 @@ public class AdmobEx extends Extension
 	private static AdSize _bannerSize = null;
 	private static InterstitialAd _interstitial = null;
 	private static RewardedAd _rewarded = null;
-	private static AppOpenAdManager _appOpenAdManager = null;
+	private AppOpenAd _appOpenAd = null;
+    private boolean _isLoadingAppOpenAd = false;
+    private boolean _isShowingAppOpenAd = false;
+
+    /** Keep track of the time an app open ad is loaded to ensure you don't show an expired ad. */
+    private long loadTime = 0;
 	
 	private static ConsentInformation consentInformation = null;
 
@@ -200,7 +206,6 @@ public class AdmobEx extends Extension
 			testDeviceIds.add(deviceId);
 			
 			configuration.setTestDeviceIds(testDeviceIds);
-			_appOpenAdManager = new AppOpenAdManager();
 			//Log.d("AdmobEx", "TEST DEVICE ID: "+deviceId);
 		}
 		//<
@@ -346,7 +351,7 @@ public class AdmobEx extends Extension
 	{
 		mainActivity.runOnUiThread(new Runnable()
 		{
-			_appOpenAdManager.loadAd(mainActivity,id);
+			loadAppOpenAd();
 		});
 	}
 
@@ -642,33 +647,18 @@ public class AdmobEx extends Extension
     void onShowAdComplete();
   }
 
+    
 
-	/** Inner class that loads and shows app open ads. */
-  private class AppOpenAdManager {
-
-    private static final String LOG_TAG = "AppOpenAdManager";
-    // private static final String AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921";
-
-    private final GoogleMobileAdsConsentManager googleMobileAdsConsentManager =
-        GoogleMobileAdsConsentManager.getInstance(getApplicationContext());
-    private AppOpenAd appOpenAd = null;
-    private boolean isLoadingAd = false;
-    private boolean isShowingAd = false;
-
-    /** Keep track of the time an app open ad is loaded to ensure you don't show an expired ad. */
-    private long loadTime = 0;
-
-    /** Constructor. */
-    public AppOpenAdManager() {}
+    
 
     /**
      * Load an ad.
      *
      * @param context the context of the activity that loads the ad
      */
-    private void loadAd(Context context,final String adId) {
+    public static void loadAppOpenAd(final String adId) {
       // Do not load ad if there is an unused ad or one is already loading.
-      if (isLoadingAd || isAdAvailable()) {
+      if (_isLoadingAppOpenAd || isAdAvailable()) {
         return;
       }
 
@@ -691,6 +681,7 @@ public class AdmobEx extends Extension
               loadTime = (new Date()).getTime();
 
               Log.d(LOG_TAG, "onAdLoaded.");
+              _callback.call("onStatus", new Object[] {APPOPEN_LOADED, ""});
               Toast.makeText(context, "onAdLoaded", Toast.LENGTH_SHORT).show();
             }
 
@@ -701,9 +692,10 @@ public class AdmobEx extends Extension
              */
             @Override
             public void onAdFailedToLoad(LoadAdError loadAdError) {
-              isLoadingAd = false;
+              _isLoadingAppOpenAd = false;
               Log.d(LOG_TAG, "onAdFailedToLoad: " + loadAdError.getMessage());
               Toast.makeText(context, "onAdFailedToLoad", Toast.LENGTH_SHORT).show();
+              _callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_LOAD, adError.toString()});
             }
           });
     }
@@ -716,11 +708,11 @@ public class AdmobEx extends Extension
     }
 
     /** Check if ad exists and can be shown. */
-    public boolean isAdAvailable() {
+    public boolean isAppOpenAdAvailable() {
       // Ad references in the app open beta will time out after four hours, but this time limit
       // may change in future beta versions. For details, see:
       // https://support.google.com/admob/answer/9341964?hl=en
-      return appOpenAd != null && wasLoadTimeLessThanNHoursAgo(4);
+      return _appOpenAd != null && wasLoadTimeLessThanNHoursAgo(4);
     }
 
     /**
@@ -728,7 +720,7 @@ public class AdmobEx extends Extension
      *
      * @param activity the activity that shows the app open ad
      */
-    private void showAdIfAvailable(@NonNull final Activity activity) {
+    private void showAppOpenAdIfAvailable() {
       showAdIfAvailable(
           activity,
           new OnShowAdCompleteListener() {
@@ -745,7 +737,7 @@ public class AdmobEx extends Extension
      * @param activity the activity that shows the app open ad
      * @param onShowAdCompleteListener the listener to be notified when an app open ad is complete
      */
-    private void showAdIfAvailable(
+    private void showAppOpenAdIfAvailable(
         @NonNull final Activity activity,
         @NonNull OnShowAdCompleteListener onShowAdCompleteListener) {
       // If the app open ad is already showing, do not show the ad again.
@@ -766,13 +758,13 @@ public class AdmobEx extends Extension
 
       Log.d(LOG_TAG, "Will show ad.");
 
-      appOpenAd.setFullScreenContentCallback(
+      _appOpenAd.setFullScreenContentCallback(
           new FullScreenContentCallback() {
             /** Called when full screen content is dismissed. */
             @Override
             public void onAdDismissedFullScreenContent() {
               // Set the reference to null so isAdAvailable() returns false.
-              appOpenAd = null;
+              _appOpenAd = null;
               isShowingAd = false;
 
               Log.d(LOG_TAG, "onAdDismissedFullScreenContent.");
@@ -787,7 +779,7 @@ public class AdmobEx extends Extension
             /** Called when fullscreen content failed to show. */
             @Override
             public void onAdFailedToShowFullScreenContent(AdError adError) {
-              appOpenAd = null;
+              _appOpenAd = null;
               isShowingAd = false;
 
               Log.d(LOG_TAG, "onAdFailedToShowFullScreenContent: " + adError.getMessage());
@@ -809,7 +801,7 @@ public class AdmobEx extends Extension
           });
 
       isShowingAd = true;
-      appOpenAd.show(activity);
+      _appOpenAd.show(activity);
     }
-  }
 }
+

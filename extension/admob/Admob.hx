@@ -4,7 +4,8 @@ import extension.admob.AdmobEvent;
 import extension.admob.AdmobStatus;
 import haxe.Json;
 import openfl.Lib;
-import lime.system.JNI;
+// import lime.system.JNI;
+import nme.JNI;
 import openfl.events.EventDispatcher;
 
 class Admob
