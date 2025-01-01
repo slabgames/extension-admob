@@ -50,7 +50,7 @@ class Admob
 	private static var _showInterstitial:Void->Void = function():Void {};
 	private static var _loadRewarded:String->Void = function(id:String):Void {};
 	private static var _showRewarded:Void->Void = function():Void {};
-	private static var _showAppOpen:Void->Void = function():Void {};
+	private static var _showAppOpen:String->Void = function(id:String):Void {};
 	private static var _loadAppOpen:String->Void =  function(id:String):Void{};
 	private static var _setVolume:Float->Void = function(vol:Float):Void {};
 	private static var _hasConsentForPuprpose:Int->Int = function(purpose:Int):Int {return -1;};
@@ -80,7 +80,7 @@ class Admob
 			_loadRewarded = JNI.createStaticMethod(EXT_ADMOB_ANDY, "loadRewarded", "(Ljava/lang/String;)V");
 			_showRewarded = JNI.createStaticMethod(EXT_ADMOB_ANDY, "showRewarded", "()V");
 			_loadAppOpen = JNI.createStaticMethod(EXT_ADMOB_ANDY, "loadAppOpen","(Ljava/lang/String;)V");
-			_showAppOpen = JNI.createStaticMethod(EXT_ADMOB_ANDY, "showAppOpen","()V");
+			_showAppOpen = JNI.createStaticMethod(EXT_ADMOB_ANDY, "showAppOpen","(Ljava/lang/String;)V");
 
 			_setVolume = JNI.createStaticMethod(EXT_ADMOB_ANDY, "setVolume", "(F)V");
 			_hasConsentForPuprpose = JNI.createStaticMethod(EXT_ADMOB_ANDY, "hasConsentForPuprpose", "(I)I");
@@ -249,13 +249,13 @@ class Admob
 			status.onStatus(AdmobEvent.APPOPEN_FAILED_TO_LOAD, "Extension is not initialized!");
 	}
 
-	public static function showAppOpen():Void
+	public static function showAppOpen(id:String):Void
 	{
 		if(_inited)
 		{
 			try
 			{
-				_showAppOpen();
+				_showAppOpen(id);
 			}
 			catch(e:Dynamic)
 			{

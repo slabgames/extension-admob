@@ -12,6 +12,9 @@ import android.widget.Toast;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.app.Activity;
+import android.util.Log;
+import java.util.Date;
 
 import androidx.annotation.NonNull;
 
@@ -101,9 +104,10 @@ public class AdmobEx extends Extension
 	private static String _appOpenId = "";
     private static boolean _isLoadingAppOpenAd = false;
     private static boolean _isShowingAppOpenAd = false;
+    private static String LOG_TAG = "Admobex";
 
     /** Keep track of the time an app open ad is loaded to ensure you don't show an expired ad. */
-    private long loadTime = 0;
+    private static long loadTime = 0;
 	
 	private static ConsentInformation consentInformation = null;
 
@@ -355,21 +359,24 @@ public class AdmobEx extends Extension
 		_appOpenId = id;
 		mainActivity.runOnUiThread(new Runnable()
 		{
-			loadAppOpenAd(id);
+			public void run()
+			{
+				loadAppOpenAd(id);
+			}
+			
 		});
 	}
 
-	public static void showAppOpen()
+	public static void showAppOpen(final String id)
 	{
+		_appOpenId = id;
 		if(_appOpenAd != null)
 		{
 			mainActivity.runOnUiThread(new Runnable()
 			{
 				public void run()
 				{
-					showAppOpenAdIfAvailable(mainActivity, new OnShowAdCompleteListener(){
-						_callback.call("onStatus", new Object[] {APPOPEN_SHOWED, ""}); //no need here, because called at onAdShowedFullScreenContent
-					});
+					showAppOpenAdIfAvailable();
 					
 				}
 			});
@@ -669,7 +676,7 @@ public class AdmobEx extends Extension
       _isLoadingAppOpenAd = true;
       AdRequest request = new AdRequest.Builder().build();
       AppOpenAd.load(
-          context,
+          mainActivity,
           adId,
           request,
           new AppOpenAdLoadCallback() {
@@ -686,7 +693,7 @@ public class AdmobEx extends Extension
 
               Log.d(LOG_TAG, "onAdLoaded.");
               _callback.call("onStatus", new Object[] {APPOPEN_LOADED, ""});
-              Toast.makeText(context, "onAdLoaded", Toast.LENGTH_SHORT).show();
+              Toast.makeText(mainActivity, "onAdLoaded", Toast.LENGTH_SHORT).show();
             }
 
             /**
@@ -698,21 +705,21 @@ public class AdmobEx extends Extension
             public void onAdFailedToLoad(LoadAdError loadAdError) {
               _isLoadingAppOpenAd = false;
               Log.d(LOG_TAG, "onAdFailedToLoad: " + loadAdError.getMessage());
-              Toast.makeText(context, "onAdFailedToLoad", Toast.LENGTH_SHORT).show();
-              _callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_LOAD, adError.toString()});
+              Toast.makeText(mainActivity, "onAdFailedToLoad", Toast.LENGTH_SHORT).show();
+              _callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_LOAD, loadAdError.toString()});
             }
           });
     }
 
     /** Check if ad was loaded more than n hours ago. */
-    private boolean wasLoadTimeLessThanNHoursAgo(long numHours) {
+    private static boolean wasLoadTimeLessThanNHoursAgo(long numHours) {
       long dateDifference = (new Date()).getTime() - loadTime;
       long numMilliSecondsPerHour = 3600000;
       return (dateDifference < (numMilliSecondsPerHour * numHours));
     }
 
     /** Check if ad exists and can be shown. */
-    public boolean isAppOpenAdAvailable() {
+    public static boolean isAppOpenAdAvailable() {
       // Ad references in the app open beta will time out after four hours, but this time limit
       // may change in future beta versions. For details, see:
       // https://support.google.com/admob/answer/9341964?hl=en
@@ -724,7 +731,7 @@ public class AdmobEx extends Extension
      *
      * @param activity the activity that shows the app open ad
      */
-    private void showAppOpenAdIfAvailable() {
+    private static void showAppOpenAdIfAvailable() {
       showAppOpenAdIfAvailable(
           mainActivity,
           new OnShowAdCompleteListener() {
@@ -742,7 +749,7 @@ public class AdmobEx extends Extension
      * @param activity the activity that shows the app open ad
      * @param onShowAdCompleteListener the listener to be notified when an app open ad is complete
      */
-    private void showAppOpenAdIfAvailable(
+    private static void showAppOpenAdIfAvailable(
         @NonNull final Activity activity,
         @NonNull OnShowAdCompleteListener onShowAdCompleteListener) {
       // If the app open ad is already showing, do not show the ad again.
