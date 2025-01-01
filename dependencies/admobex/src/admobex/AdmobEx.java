@@ -692,7 +692,7 @@ public class AdmobEx extends Extension
 
               Log.d(LOG_TAG, "onAdLoaded.");
               _callback.call("onStatus", new Object[] {APPOPEN_LOADED, ""});
-              Toast.makeText(mainActivity, "onAdLoaded", Toast.LENGTH_SHORT).show();
+              // Toast.makeText(mainActivity, "onAdLoaded", Toast.LENGTH_SHORT).show();
             }
 
             /**
@@ -704,7 +704,7 @@ public class AdmobEx extends Extension
             public void onAdFailedToLoad(LoadAdError loadAdError) {
               _isLoadingAppOpenAd = false;
               Log.d(LOG_TAG, "onAdFailedToLoad: " + loadAdError.getMessage());
-              Toast.makeText(mainActivity, "onAdFailedToLoad", Toast.LENGTH_SHORT).show();
+              // Toast.makeText(mainActivity, "onAdFailedToLoad", Toast.LENGTH_SHORT).show();
               _callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_LOAD, loadAdError.toString()});
             }
           });
@@ -782,7 +782,7 @@ public class AdmobEx extends Extension
               _isShowingAppOpenAd = false;
 
               Log.d(LOG_TAG, "onAdDismissedFullScreenContent.");
-              Toast.makeText(activity, "onAdDismissedFullScreenContent", Toast.LENGTH_SHORT).show();
+              // Toast.makeText(activity, "onAdDismissedFullScreenContent", Toast.LENGTH_SHORT).show();
               _callback.call("onStatus", new Object[] {APPOPEN_DISMISSED, ""});
 
               onShowAdCompleteListener.onShowAdComplete();
@@ -801,7 +801,7 @@ public class AdmobEx extends Extension
               _callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_SHOW, adError.toString()});
 
               Log.d(LOG_TAG, "onAdFailedToShowFullScreenContent: " + adError.getMessage());
-              Toast.makeText(activity, "onAdFailedToShowFullScreenContent", Toast.LENGTH_SHORT)
+              // Toast.makeText(activity, "onAdFailedToShowFullScreenContent", Toast.LENGTH_SHORT)
                   .show();
 
               onShowAdCompleteListener.onShowAdComplete();
@@ -816,7 +816,7 @@ public class AdmobEx extends Extension
             @Override
             public void onAdShowedFullScreenContent() {
               Log.d(LOG_TAG, "onAdShowedFullScreenContent.");
-              Toast.makeText(activity, "onAdShowedFullScreenContent", Toast.LENGTH_SHORT).show();
+              // Toast.makeText(activity, "onAdShowedFullScreenContent", Toast.LENGTH_SHORT).show();
               _callback.call("onStatus", new Object[] {APPOPEN_SHOWED, ""});
             }
           });
