@@ -801,8 +801,7 @@ public class AdmobEx extends Extension
               _callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_SHOW, adError.toString()});
 
               Log.d(LOG_TAG, "onAdFailedToShowFullScreenContent: " + adError.getMessage());
-              // Toast.makeText(activity, "onAdFailedToShowFullScreenContent", Toast.LENGTH_SHORT)
-                  .show();
+              // Toast.makeText(activity, "onAdFailedToShowFullScreenContent", Toast.LENGTH_SHORT).show();
 
               onShowAdCompleteListener.onShowAdComplete();
               if (consentInformation!= null){
