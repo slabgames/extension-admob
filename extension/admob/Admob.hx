@@ -248,6 +248,24 @@ class Admob
 		else
 			status.onStatus(AdmobEvent.APPOPEN_FAILED_TO_LOAD, "Extension is not initialized!");
 	}
+
+	public static function showAppOpen():Void
+	{
+		if(_inited)
+		{
+			try
+			{
+				_showAppOpen();
+			}
+			catch(e:Dynamic)
+			{
+				trace("showRewarded Exception: " + e);
+				status.onStatus(AdmobEvent.APPOPEN_FAILED_TO_SHOW, e);
+			}
+		}
+		else
+			status.onStatus(AdmobEvent.APPOPEN_FAILED_TO_SHOW, "Extension is not initialized!");
+	}
 	
 	/**
 	   Sets volume for Interstitial and Rewarded ads, if sets to 0 might get less ads, cause some advertisers don't allow muted ads.
