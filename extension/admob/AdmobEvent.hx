@@ -27,6 +27,13 @@ class AdmobEvent extends Event
 	public static var REWARDED_FAILED_TO_SHOW:String = "REWARDED_FAILED_TO_SHOW";
 	public static var REWARDED_SHOWED:String = "REWARDED_SHOWED";
 	public static var REWARDED_EARNED:String = "REWARDED_EARNED";
+
+	public static var APPOPEN_LOADED:String = "APPOPEN_LOADED";
+	public static var APPOPEN_FAILED_TO_LOAD:String = "APPOPEN_FAILED_TO_LOAD";
+	public static var APPOPEN_DISMISSED:String = "APPOPEN_DISMISSED";
+	public static var APPOPEN_FAILED_TO_SHOW:String = "APPOPEN_FAILED_TO_SHOW";
+	public static var APPOPEN_SHOWED:String = "APPOPEN_SHOWED";
+	
 	public static var WHAT_IS_GOING_ON:String = "WHAT_IS_GOING_ON"; //an event that should never happen
 	
 	public var data(default, null):String; //extra info about event

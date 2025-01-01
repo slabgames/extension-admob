@@ -8,12 +8,22 @@ android {
 			res.srcDirs = ['res']
 		}
 	}
-	compileSdkVersion Integer.parseInt(project.ANDROID_BUILD_SDK_VERSION)
-	buildToolsVersion project.ANDROID_BUILD_TOOLS_VERSION
+
+	// nme
+    compileSdkVersion ::ANDROID_BUILD_SDK_VERSION::
+    buildToolsVersion "::ANDROID_BUILD_TOOLS_VERSION::"
+
+	// openfl
+	// compileSdkVersion Integer.parseInt(project.ANDROID_BUILD_SDK_VERSION)
+	// buildToolsVersion project.ANDROID_BUILD_TOOLS_VERSION
 }
 
 dependencies {
-	implementation project(':deps:extension-api')
+	// nme
+    implementation project(':extension-api')
+
+    //OPENFL
+    // implementation project(':deps::extension-api')
 	implementation 'com.google.android.gms:play-services-ads:::SET_PLAY_SERVICES_VERSION::'
 	implementation 'com.google.android.ump:user-messaging-platform:2.1.0'
 }

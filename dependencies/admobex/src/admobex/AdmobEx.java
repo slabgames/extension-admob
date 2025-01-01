@@ -78,7 +78,9 @@ public class AdmobEx extends Extension
 	public static final String WHAT_IS_GOING_ON = "WHAT_IS_GOING_ON";
 	public static final String APPOPEN_FAILED_TO_SHOW = "APPOPEN_FAILED_TO_SHOW";
 	public static final String APPOPEN_SHOWED = "APPOPEN_SHOWED";
-	public static final String APPOPEN_SHOWED = "APPOPEN_LOADED";
+	public static final String APPOPEN_LOADED = "APPOPEN_LOADED";
+	public static final String APPOPEN_FAILED_TO_LOAD = "APPOPEN_FAILED_TO_LOAD";
+	public static final String APPOPEN_DISMISSED = "APPOPEN_DISMISSED";
 	
 	private static final int BANNER_SIZE_ADAPTIVE = 0; //Anchored adaptive, somewhat default now (a replacement for SMART_BANNER); banner width is fullscreen, height calculated acordingly (might not work well with landscape orientation)
 	private static final int BANNER_SIZE_BANNER = 1; //320x50
@@ -95,9 +97,10 @@ public class AdmobEx extends Extension
 	private static AdSize _bannerSize = null;
 	private static InterstitialAd _interstitial = null;
 	private static RewardedAd _rewarded = null;
-	private AppOpenAd _appOpenAd = null;
-    private boolean _isLoadingAppOpenAd = false;
-    private boolean _isShowingAppOpenAd = false;
+	private static AppOpenAd _appOpenAd = null;
+	private static String _appOpenId = "";
+    private static boolean _isLoadingAppOpenAd = false;
+    private static boolean _isShowingAppOpenAd = false;
 
     /** Keep track of the time an app open ad is loaded to ensure you don't show an expired ad. */
     private long loadTime = 0;
@@ -349,21 +352,22 @@ public class AdmobEx extends Extension
 
 	public static void loadAppOpen(final String id)
 	{
+		_appOpenId = id;
 		mainActivity.runOnUiThread(new Runnable()
 		{
-			loadAppOpenAd();
+			loadAppOpenAd(id);
 		});
 	}
 
 	public static void showAppOpen()
 	{
-		if(_appOpenAdManager != null)
+		if(_appOpenAd != null)
 		{
 			mainActivity.runOnUiThread(new Runnable()
 			{
 				public void run()
 				{
-					_appOpenAdManager.showAdIfAvailable(mainActivity, new OnShowAdCompleteListener(){
+					showAppOpenAdIfAvailable(mainActivity, new OnShowAdCompleteListener(){
 						_callback.call("onStatus", new Object[] {APPOPEN_SHOWED, ""}); //no need here, because called at onAdShowedFullScreenContent
 					});
 					
@@ -658,11 +662,11 @@ public class AdmobEx extends Extension
      */
     public static void loadAppOpenAd(final String adId) {
       // Do not load ad if there is an unused ad or one is already loading.
-      if (_isLoadingAppOpenAd || isAdAvailable()) {
+      if (_isLoadingAppOpenAd || isAppOpenAdAvailable()) {
         return;
       }
 
-      isLoadingAd = true;
+      _isLoadingAppOpenAd = true;
       AdRequest request = new AdRequest.Builder().build();
       AppOpenAd.load(
           context,
@@ -676,8 +680,8 @@ public class AdmobEx extends Extension
              */
             @Override
             public void onAdLoaded(AppOpenAd ad) {
-              appOpenAd = ad;
-              isLoadingAd = false;
+              _appOpenAd = ad;
+              _isLoadingAppOpenAd = false;
               loadTime = (new Date()).getTime();
 
               Log.d(LOG_TAG, "onAdLoaded.");
@@ -721,12 +725,13 @@ public class AdmobEx extends Extension
      * @param activity the activity that shows the app open ad
      */
     private void showAppOpenAdIfAvailable() {
-      showAdIfAvailable(
-          activity,
+      showAppOpenAdIfAvailable(
+          mainActivity,
           new OnShowAdCompleteListener() {
             @Override
             public void onShowAdComplete() {
               // Empty because the user will go back to the activity that shows the ad.
+            	_callback.call("onStatus", new Object[] {APPOPEN_SHOWED, ""});
             }
           });
     }
@@ -741,18 +746,21 @@ public class AdmobEx extends Extension
         @NonNull final Activity activity,
         @NonNull OnShowAdCompleteListener onShowAdCompleteListener) {
       // If the app open ad is already showing, do not show the ad again.
-      if (isShowingAd) {
+      if (_isShowingAppOpenAd) {
         Log.d(LOG_TAG, "The app open ad is already showing.");
         return;
       }
 
       // If the app open ad is not available yet, invoke the callback then load the ad.
-      if (!isAdAvailable()) {
+      if (!isAppOpenAdAvailable()) {
         Log.d(LOG_TAG, "The app open ad is not ready yet.");
         onShowAdCompleteListener.onShowAdComplete();
-        if (googleMobileAdsConsentManager.canRequestAds()) {
-          loadAd(currentActivity);
+        if (consentInformation!= null){
+        	if (consentInformation.canRequestAds()) {
+	          loadAppOpenAd(_appOpenId);
+	        }
         }
+        
         return;
       }
 
@@ -763,33 +771,39 @@ public class AdmobEx extends Extension
             /** Called when full screen content is dismissed. */
             @Override
             public void onAdDismissedFullScreenContent() {
-              // Set the reference to null so isAdAvailable() returns false.
+              // Set the reference to null so isAppOpenAdAvailable() returns false.
               _appOpenAd = null;
-              isShowingAd = false;
+              _isShowingAppOpenAd = false;
 
               Log.d(LOG_TAG, "onAdDismissedFullScreenContent.");
               Toast.makeText(activity, "onAdDismissedFullScreenContent", Toast.LENGTH_SHORT).show();
+              _callback.call("onStatus", new Object[] {APPOPEN_DISMISSED, ""});
 
               onShowAdCompleteListener.onShowAdComplete();
-              if (googleMobileAdsConsentManager.canRequestAds()) {
-                loadAd(activity);
-              }
+              if (consentInformation!= null){
+		        	if (consentInformation.canRequestAds()) {
+			          loadAppOpenAd(_appOpenId);
+			        }
+		        }
             }
 
             /** Called when fullscreen content failed to show. */
             @Override
             public void onAdFailedToShowFullScreenContent(AdError adError) {
               _appOpenAd = null;
-              isShowingAd = false;
+              _isShowingAppOpenAd = false;
+              _callback.call("onStatus", new Object[] {APPOPEN_FAILED_TO_SHOW, adError.toString()});
 
               Log.d(LOG_TAG, "onAdFailedToShowFullScreenContent: " + adError.getMessage());
               Toast.makeText(activity, "onAdFailedToShowFullScreenContent", Toast.LENGTH_SHORT)
                   .show();
 
               onShowAdCompleteListener.onShowAdComplete();
-              if (googleMobileAdsConsentManager.canRequestAds()) {
-                loadAd(activity);
-              }
+              if (consentInformation!= null){
+		        	if (consentInformation.canRequestAds()) {
+			          loadAppOpenAd(_appOpenId);
+			        }
+		        }
             }
 
             /** Called when fullscreen content is shown. */
@@ -797,10 +811,11 @@ public class AdmobEx extends Extension
             public void onAdShowedFullScreenContent() {
               Log.d(LOG_TAG, "onAdShowedFullScreenContent.");
               Toast.makeText(activity, "onAdShowedFullScreenContent", Toast.LENGTH_SHORT).show();
+              _callback.call("onStatus", new Object[] {APPOPEN_SHOWED, ""});
             }
           });
 
-      isShowingAd = true;
+      _isShowingAppOpenAd = true;
       _appOpenAd.show(activity);
     }
 }
