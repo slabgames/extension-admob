@@ -367,9 +367,8 @@ public class AdmobEx extends Extension
 		});
 	}
 
-	public static void showAppOpen(final String id)
+	public static void showAppOpen()
 	{
-		_appOpenId = id;
 		if(_appOpenAd != null)
 		{
 			mainActivity.runOnUiThread(new Runnable()
